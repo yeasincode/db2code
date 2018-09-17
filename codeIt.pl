@@ -1,4 +1,5 @@
 #/usr/bin/perl
+package CodeIt;
 sub rootPath{
     my $path=__FILE__;
     $path=~s/codeIt\.pl//;
@@ -6,45 +7,124 @@ sub rootPath{
     $path; 
 }
 
+
 BEGIN{
-    unshift @INC,rootPath.'core';
+    unshift @INC,rootPath.'lib';
 }
 use v5.18.0;
 use DB::DbConfig;
 use Config::IniFiles;
 use Data::Dumper;
+use Path::Class;
+use Invoke;
+use Utils;
 
-sub camelStyle{
-  my $word=lc(shift);
-  $word=~s/\_[a-z]/\U$&/g;
-  $word=~s/\_//g;
-  $word;
+my $templet;
+my $path;
+
+sub new{
+  my ($class,$db)=@_;
+  my $self={
+    _db=>$db,
+  };
+
+  bless $self,$class;
+  $self; 
 }
 
-sub pascalCaseStyle{
-  my $word=lc(shift);
-  $word=~s/^[a-z]/\U$&/;
-  $word=~s/\_[a-z]/\U$&/g;
-  $word=~s/\_//g;
-  $word;
+sub tables_map{
+   my ($self)=@_;
+   say 3;
+   my @table_maps=();
+   my @tables=$self->{_db}->getTables;
+   
+   foreach my $row (@tables){
+      my $camelName=Utils::camelStyle($row->{tableName});
+      my $pascalCaseName=Utils::pascalCaseStyle($row->{tableName});
+      push @table_maps,{
+        id=>$row->{tableId},
+        rawName=>$row->{tableName},
+        camelName=>$camelName,
+        pascalCaseName=>$pascalCaseName,
+        comment=>$row->{tableComment}
+      };
+   }
+   
+   return @table_maps;
+}
+
+sub columns_map{
+  my ($self,$tableId)=@_;
+  my @column_maps=();
+  my @columns=$self->{_db}->getColumns;
+  foreach my $row (@columns){
+     my $camelName=Utils::camelStyle($row->{name});
+     my $pascalCaseName=Utils::pascalCaseStyle($row->{name});
+     push @column_maps,{
+        isIdentity=>$row->{isIdentity},
+        rawName=>$row->{name},
+        camelName=>$camelName,
+        pascalCaseName=>$pascalCaseName,
+        type=>$row->{type},
+        length=>$row->{length},
+        precision=>$row->{precision},
+        isScale=>$row->{isScale},
+        isNull=>$row->{isNull},
+        isPrimaryKey=>$row->{isPrimaryKey},
+        comment=>$row->{coment}
+      };
+  }
+   
+  return @column_maps;
+}
+
+sub saveTo{
+  my ($self,$content,$fileName,$subPath)=@_;
+  my $newPath=$path;
+  if($subPath){
+    $newPath=&$subPath($path)||$path;
+  }
+  my $dir=dir($newPath);
+  if($dir->is_relative){
+      $dir=dir($path,$newPath);
+  }
+  $dir->mkpath unless(-d $dir->stringify);
+  my $file=file($dir->stringify,$fileName);
+  $file->spew(iomode => '>:encoding(UTF-8)', $content);
+}
+
+sub loadFiles{
+	my $dir=dir(&rootPath,"$templet");
+  my @files=();
+  return @files unless -d $dir;
+	while(my $file=$dir->next){
+		my $fileName=$file;
+		next if($file->is_dir||$fileName!~/\.pm$/);
+		$fileName=~s/^.+[\/\\]//;
+		$fileName=~s/\.pm//;
+    push @files,{fileName=>$fileName,path=>$file->absolute};
+	}
+  return @files;
 }
 
 sub main{
-    my $cfg = Config::IniFiles->new( -file => rootPath.'config.ini' );
+    my $cfg = Config::IniFiles->new( -file => &rootPath().'config.ini' );
+    $templet=$cfg->val('code','templet');
+    $path=$cfg->val('code','path');
     my $db=DB::DbConfig->new(
         $cfg->val('db','server'),
         $cfg->val('db','database'),
         $cfg->val('db','username'),
         $cfg->val('db','password'),
         $cfg->val('db','dbtype'));
-    $db->tables;
-    $db->columns('bcontact');
-    say camelStyle 'DEFAULT_COLLATE_NAME';
-    say pascalCaseStyle 'DEFAULT_COLLATE_NAME';
+        
+    my $context=CodeIt->new($db);
+
+    my @files=loadFiles;
+
+    foreach(@files){
+      Invoke->new($_->{path},$_->{fileName})->execute($context);
+    }
 }
 
-
-#while(my ($key,$value)=each %INC) {
-#	say $key.'---'.$value;
-#}
 main;
