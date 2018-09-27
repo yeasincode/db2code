@@ -12,7 +12,7 @@ BEGIN{
     unshift @INC,rootPath.'lib';
 }
 use v5.18.0;
-use DB::DbConfig;
+use Db::DbConfig;
 use Config::IniFiles;
 use Data::Dumper;
 use Path::Class;
@@ -34,7 +34,6 @@ sub new{
 
 sub tables_map{
    my ($self)=@_;
-   say 3;
    my @table_maps=();
    my @tables=$self->{_db}->getTables;
    
@@ -56,7 +55,7 @@ sub tables_map{
 sub columns_map{
   my ($self,$tableId)=@_;
   my @column_maps=();
-  my @columns=$self->{_db}->getColumns;
+  my @columns=$self->{_db}->getColumns($tableId);
   foreach my $row (@columns){
      my $camelName=Utils::camelStyle($row->{name});
      my $pascalCaseName=Utils::pascalCaseStyle($row->{name});
@@ -84,13 +83,14 @@ sub saveTo{
   if($subPath){
     $newPath=&$subPath($path)||$path;
   }
+  
   my $dir=dir($newPath);
   if($dir->is_relative){
-      $dir=dir($path,$newPath);
+      $dir=dir(rootPath(),$newPath);
   }
   $dir->mkpath unless(-d $dir->stringify);
   my $file=file($dir->stringify,$fileName);
-  $file->spew(iomode => '>:encoding(UTF-8)', $content);
+  $file->spew(iomode => '>:raw', $content);
 }
 
 sub loadFiles{
@@ -111,7 +111,7 @@ sub main{
     my $cfg = Config::IniFiles->new( -file => &rootPath().'config.ini' );
     $templet=$cfg->val('code','templet');
     $path=$cfg->val('code','path');
-    my $db=DB::DbConfig->new(
+    my $db=Db::DbConfig->new(
         $cfg->val('db','server'),
         $cfg->val('db','database'),
         $cfg->val('db','username'),

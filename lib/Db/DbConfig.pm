@@ -1,8 +1,9 @@
-#!/usr/bin/perl -w
-package DB::DbConfig;
+#!/usr/bin/perl 
+package Db::DbConfig;
 use DBI;
 use strict;
 use v5.18.0;
+use Db::DbType::Lang::JavaMap;
 # 驱动程序对象的句柄
 my %dsn_map=(
   mysql=>'DBI:mysql:database={db};host={host}',
@@ -62,6 +63,7 @@ sub getConnect{
   $dsn=~s/\{db\}/$self->{db}/;
 
   my $dbh=DBI->connect($dsn,$self->{username},$self->{password}) or die "couldn't open database: DBI->errstr";
+  $dbh->do("SET NAMES utf8");
   if ($dbh->err()) { 
     die "$DBI::errstr\n"; 
   }
@@ -76,6 +78,10 @@ sub getTables{
   my $sth = $dbh->prepare($sql);
   $sth->execute;
   while(my $row = $sth->fetchrow_hashref){
+    unless($row->{tableName}=~/[a-zA-Z_]/){
+        say "error table name to used,it will be pass!";
+        next;
+    }
     push @tableNames,{
         tableId=>$row->{tableId},
         tableName=>$row->{tableName},
@@ -89,11 +95,14 @@ sub getTables{
 sub getColumns{
   my ($self,$tableId)=@_;
   my @tableColumns=();
+  my $sqlMap=Db::DbType::Lang::JavaMap->new($self->{dbtype});
+  my $lang=$sqlMap->lang;
   my $dbh=$self->getConnect;
   my $sql=format_sql($column_sql_map{$self->{dbtype}},{db=>$self->{db},tableId=>$tableId});
   my $sth = $dbh->prepare($sql);
   $sth->execute;
   while(my $row = $sth->fetchrow_hashref){
+    my ($package,$type)=$sqlMap->mapTo($row->{type});
     push @tableColumns,{
         name=>$row->{name},
         type=>$row->{type},
@@ -103,7 +112,10 @@ sub getColumns{
         isNull=>$row->{isNull},
         isPrimaryKey=>$row->{isPrimaryKey},
         coment=>$row->{coment},
-        isIdentity=>$row->{isIdentity}
+        isIdentity=>$row->{isIdentity},
+        lang=>$lang,
+        langPackage=>$package,
+        langType=>$type
       };
   }
   $sth->finish();
