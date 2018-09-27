@@ -70,7 +70,9 @@ sub columns_map{
         isScale=>$row->{isScale},
         isNull=>$row->{isNull},
         isPrimaryKey=>$row->{isPrimaryKey},
-        comment=>$row->{coment}
+        comment=>$row->{comment},
+        langPackage=>$row->{langPackage},
+        langType=>$row->{langType}
       };
   }
    

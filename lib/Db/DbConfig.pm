@@ -27,7 +27,7 @@ my %column_sql_map=(
        col.numeric_scale as `isScale`,
        col.is_nullable as `isNull`,
        if(col.column_key='pri',1 , 0) as `isPrimaryKey`,
-       col.column_comment as `coment`,
+       col.column_comment as `comment`,
 	   if(col.extra='auto_increment',1,0) as `isIdentity` 
 from information_schema.columns col where table_schema={db} and col.table_name={tableId}",
   sqlserver=>'',
@@ -111,9 +111,8 @@ sub getColumns{
         isScale=>$row->{isScale},
         isNull=>$row->{isNull},
         isPrimaryKey=>$row->{isPrimaryKey},
-        coment=>$row->{coment},
+        comment=>$row->{comment},
         isIdentity=>$row->{isIdentity},
-        lang=>$lang,
         langPackage=>$package,
         langType=>$type
       };

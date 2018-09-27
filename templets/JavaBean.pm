@@ -13,6 +13,7 @@ my $fieldTemplate='
   *获取{comment}
   */
   public {type} get{pname}(){
+  
     return {name};
   }
 
@@ -20,6 +21,7 @@ my $fieldTemplate='
   *设置{comment}
   */
   public void set{pname}({type} {name}){
+  
     this.{name}={name};
   }
 ';
@@ -45,10 +47,9 @@ public class $className\{
     my @columns=$context->columns_map($tableId);
     foreach my $column (@columns){
       my $filedContent=$fieldTemplate;
-      my ($packageName,$typeName) =Utils::mysqlMapJava($column->{type});
-      $imports{$typeName}=$packageName;
+      $imports{$column->{langType}}=$column->{langPackage};
       $filedContent=~s/{comment}/$column->{comment}/g;
-      $filedContent=~s/{type}/$typeName/g;
+      $filedContent=~s/{type}/$column->{langType}/g;
       $filedContent=~s/{name}/$column->{camelName}/g;
       $filedContent=~s/{pname}/$column->{pascalCaseName}/g;
       $content.=$filedContent;
@@ -58,7 +59,7 @@ public class $className\{
 \}"; 
 
     foreach(keys %imports){
-      $content="import $_;
+      $content="import $imports{$_};
 ".$content;
     }
 
